@@ -57,60 +57,59 @@ void parse_arg(int argc, char **argv) {
 
 /* Traverse all process directory and find pid with matched inode number(s) */
 int find_pid(int inode) {
-  DIR *proc_dir, *current_dir;
-  struct dirent *proc_ptr, *current_ptr;
+  DIR *proc_dir, *fd_dir;
+  struct dirent *proc_content, *fd_content;
 
   if (!(proc_dir = opendir("/proc"))) {
     printf("[find_pid] No Directory %s\n", "/proc");
     return -1;
   }
 
-  while ((proc_ptr = readdir(proc_dir))) {
-    /* Skip invalid process directories */
-    if ((!strcmp(proc_ptr->d_name, ".")) || (!strcmp(proc_ptr->d_name, "..")))
+  while ((proc_content = readdir(proc_dir))) {
+    if ((!strcmp(proc_content->d_name, ".")) || (!strcmp(proc_content->d_name, "..")))
       continue;
 
-    char current_path[BUF_SIZE];
-    snprintf(current_path, sizeof(current_path), "/proc/%s/fd",
-             proc_ptr->d_name);
-    if (!(current_dir = opendir(current_path))) {
-      // printf("[find_pid] No Directory %s\n", current_path);
+    char path_to_fddir[BUF_SIZE];
+    snprintf(path_to_fddir, sizeof(path_to_fddir), "/proc/%s/fd",
+             proc_content->d_name);
+    if (!(fd_dir = opendir(path_to_fddir))) {
+      // printf("[find_pid] No Directory %s\n", path_to_fddir);
       continue;
     }
-    // printf("%s\n", proc_ptr->d_name);
+    // printf("%s\n", proc_content->d_name);
 
-    while ((current_ptr = readdir(current_dir))) {
-      if ((!strcmp(current_ptr->d_name, ".")) ||
-          (!strcmp(current_ptr->d_name, "..")))
+    while ((fd_content = readdir(fd_dir))) {
+      if ((!strcmp(fd_content->d_name, ".")) ||
+          (!strcmp(fd_content->d_name, "..")))
         continue;
 
-      char buf[BUF_SIZE], path[BUF_SIZE], sock_buf[BUF_SIZE];
-      memset(buf, 0, sizeof(buf));
-      memset(path, 0, sizeof(path));
-      memset(sock_buf, 0, sizeof(sock_buf));
-      snprintf(path, sizeof(path), "%s/%s", current_path, current_ptr->d_name);
-      // printf("%s\n", path);
-      readlink(path, buf, sizeof(buf));
-      snprintf(sock_buf, sizeof(sock_buf), "socket:[%d]", inode);
-      if (!strcmp(buf, sock_buf)) {
-        printf("---%s---\n", path);
-        closedir(current_dir);
+      char symlink_dest[BUF_SIZE], path_to_symlink[BUF_SIZE], target_inode[BUF_SIZE];
+      memset(symlink_dest, 0, sizeof(symlink_dest));
+      memset(path_to_symlink, 0, sizeof(path_to_symlink));
+      memset(target_inode, 0, sizeof(target_inode));
+
+      snprintf(path_to_symlink, sizeof(path_to_symlink), "%s/%s", path_to_fddir, fd_content->d_name);
+      // printf("%s\n", path_to_symlink);
+      readlink(path_to_symlink, symlink_dest, sizeof(symlink_dest));
+      snprintf(target_inode, sizeof(target_inode), "socket:[%d]", inode);
+      if (!strcmp(symlink_dest, target_inode)) {
+        printf("---%s---\n", path_to_symlink);
+        closedir(fd_dir);
         closedir(proc_dir);
 
-        return atoi(proc_ptr->d_name);
+        return atoi(proc_content->d_name);
       }
     }
-
-    closedir(current_dir);
+    closedir(fd_dir);
   }
-
   closedir(proc_dir);
+  return -1;  /* Search failed */
 }
 
 void tcp_conn() {
   int i;
-  for (i=0; i<2000; i++)
-  printf("pid %d\n", find_pid(25574));
+  for (i=0; i<20; i++)
+  printf("pid %d\n", find_pid(25750));
   /*
   char buf[BUF_SIZE];
   memset(buf, 0, sizeof(buf));
