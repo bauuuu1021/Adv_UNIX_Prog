@@ -117,16 +117,21 @@ int find_pid(int inode) {
   return ERR; /* Search failed */
 }
 
-void tcp_conn() {
+void list_connection(char *protocal, char *filter) {
 
-  FILE *tcpv4 = fopen("/proc/net/tcp", "r");
+  char network_file[BUF_SIZE];
+  memset(network_file, 0, sizeof(network_file));
+  snprintf(network_file, sizeof(network_file), "/proc/net/%s", protocal);
+  FILE *net_fp = fopen(network_file, "r");
   char conn_info[BUF_SIZE], *local_addr, *foreign_addr, *inode;
   memset(conn_info, 0, sizeof(conn_info));
 
   /* Skip the title */
-  fgets(conn_info, BUF_SIZE, tcpv4);
+  fgets(conn_info, BUF_SIZE, net_fp);
+  printf("Proto\tLocal Address\tForeign Address\tPID/Program name and "
+         "arguments\n");
 
-  while (fgets(conn_info, BUF_SIZE, tcpv4)) {
+  while (fgets(conn_info, BUF_SIZE, net_fp)) {
     int pid;
     char cmd_path[BUF_SIZE];
     memset(cmd_path, 0, sizeof(cmd_path));
@@ -150,13 +155,18 @@ void tcp_conn() {
       fgets(cmd_content, BUF_SIZE, read_cmd);
       fclose(read_cmd);
     }
-    printf("%s ; %s ; %d / %s\n", local_addr, foreign_addr, (pid==ERR?ERR:pid), cmd_content);
+
+    /* string filter */
+    if (filter && (!strstr(cmd_content, filter)))
+      continue;
+    printf("%s\t%s\t%s\t%6d / %s\n", protocal, local_addr, foreign_addr, pid,
+           cmd_content);
   }
-  fclose(tcpv4);
+  fclose(net_fp);
 }
 
 int main(int argc, char **argv) {
 
   // parse_arg(argc, argv);
-  tcp_conn();
+  list_connection("tcp6", NULL);
 }
