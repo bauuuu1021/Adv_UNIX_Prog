@@ -10,6 +10,12 @@
 
 #define ERR -1
 #define BUF_SIZE 1024
+
+#define DFLT 0x00
+#define TCP 0x01
+#define UDP 0x10
+#define BOTH 0x11
+
 #define skip_column(to_skip)                                                   \
   do {                                                                         \
     int column = to_skip;                                                      \
@@ -17,51 +23,6 @@
       strtok(NULL, " ");                                                       \
     }                                                                          \
   } while (0)
-
-void parse_arg(int argc, char **argv) {
-  int c;
-  int this_option_optind = optind ? optind : 1;
-  int option_index = 0;
-  while (1) {
-    static struct option long_options[] = {{"tcp", no_argument, 0, 't'},
-                                           {"udp", no_argument, 0, 'u'},
-                                           {0, 0, 0, 0}};
-
-    c = getopt_long(argc, argv, "tu", long_options, &option_index);
-    if (c == ERR)
-      break;
-
-    switch (c) {
-    case 0:
-      printf("option %s", long_options[option_index].name);
-      if (optarg)
-        printf(" with arg %s", optarg);
-      printf("\n");
-      break;
-
-    case 't':
-      printf("tcp\n");
-      break;
-
-    case 'u':
-      printf("udp\n");
-      break;
-
-    case '?':
-      break;
-
-    default:
-      printf("?? getopt returned character code 0%o ??\n", c);
-    }
-  }
-
-  if (optind < argc) {
-    printf("non-option ARGV-elements: ");
-    while (optind < argc)
-      printf("%s ", argv[optind++]);
-    printf("\n");
-  }
-}
 
 /* Traverse all process directory and find pid with matched inode number(s) */
 int find_pid(int inode) {
@@ -165,8 +126,59 @@ void list_connection(char *protocal, char *filter) {
   fclose(net_fp);
 }
 
-int main(int argc, char **argv) {
+void parse_arg(int argc, char **argv) {
+  int c;
+  int this_option_optind = optind ? optind : 1;
+  int option_index = 0;
+  int protocal = DFLT;
+  char *filter = NULL;
 
-  // parse_arg(argc, argv);
-  list_connection("tcp6", NULL);
+  while (1) {
+    static struct option long_options[] = {{"tcp", no_argument, 0, 't'},
+                                           {"udp", no_argument, 0, 'u'},
+                                           {0, 0, 0, 0}};
+
+    c = getopt_long(argc, argv, "tu", long_options, &option_index);
+    if (c == ERR)
+      break;
+
+    switch (c) {
+    case 0:
+      printf("option %s", long_options[option_index].name);
+      if (optarg)
+        printf(" with arg %s", optarg);
+      printf("\n");
+      break;
+
+    case 't':
+      protocal |= TCP;
+      break;
+
+    case 'u':
+      protocal |= UDP;
+      break;
+
+    case '?':
+      break;
+
+    default:
+      printf("?? getopt returned character code 0%o ??\n", c);
+    }
+  }
+
+  if (optind < argc) {
+    filter = argv[optind];
+  }
+
+  /* Dump connection information */
+  if (protocal ^ 0x10) {
+    list_connection("tcp", filter);
+    list_connection("tcp6", filter);
+  }
+  if (protocal ^ 0x01) {
+    list_connection("udp", filter);
+    list_connection("udp6", filter);
+  }
 }
+
+int main(int argc, char **argv) { parse_arg(argc, argv); }
