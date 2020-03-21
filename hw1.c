@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define ERR -1
 #define BUF_SIZE 1024
 #define skip_column(to_skip)                                                   \
   do {                                                                         \
@@ -27,7 +28,7 @@ void parse_arg(int argc, char **argv) {
                                            {0, 0, 0, 0}};
 
     c = getopt_long(argc, argv, "tu", long_options, &option_index);
-    if (c == -1)
+    if (c == ERR)
       break;
 
     switch (c) {
@@ -69,7 +70,7 @@ int find_pid(int inode) {
 
   if (!(proc_dir = opendir("/proc"))) {
     printf("[find_pid] No Directory %s\n", "/proc");
-    return -1;
+    return ERR;
   }
 
   while ((proc_content = readdir(proc_dir))) {
@@ -113,7 +114,7 @@ int find_pid(int inode) {
     closedir(fd_dir);
   }
   closedir(proc_dir);
-  return -1; /* Search failed */
+  return ERR; /* Search failed */
 }
 
 void tcp_conn() {
@@ -126,24 +127,30 @@ void tcp_conn() {
   fgets(conn_info, BUF_SIZE, tcpv4);
 
   while (fgets(conn_info, BUF_SIZE, tcpv4)) {
-    // printf("%s\n", conn_info);
+    int pid;
+    char cmd_path[BUF_SIZE];
+    memset(cmd_path, 0, sizeof(cmd_path));
+    FILE *read_cmd;
+    char cmd_content[BUF_SIZE];
+    memset(cmd_content, 0, sizeof(cmd_content));
+
     strtok(conn_info, " ");
     local_addr = strtok(NULL, " ");
     foreign_addr = strtok(NULL, " ");
     skip_column(6);
     inode = strtok(NULL, " ");
 
-    int pid = find_pid(atoi(inode));
-    char cmd_path[BUF_SIZE];
-    memset(cmd_path, 0, sizeof(cmd_path));
-    snprintf(cmd_path, sizeof(cmd_path), "/proc/%d/cmdline", pid);
-    FILE *read_cmd = fopen(cmd_path, "r");
-    char cmd_content[BUF_SIZE];
-    memset(cmd_content, 0, sizeof(cmd_content));
-    fgets(cmd_content, BUF_SIZE, read_cmd);
+    pid = find_pid(atoi(inode));
+    if (pid != ERR) {
+      snprintf(cmd_path, sizeof(cmd_path), "/proc/%d/cmdline", pid);
+      read_cmd = fopen(cmd_path, "r");
+    }
 
-    printf("%s ; %s ; %d/%s\n", local_addr, foreign_addr, pid, cmd_content);
-    fclose(read_cmd);
+    if (read_cmd) {
+      fgets(cmd_content, BUF_SIZE, read_cmd);
+      fclose(read_cmd);
+    }
+    printf("%s ; %s ; %d / %s\n", local_addr, foreign_addr, (pid==ERR?ERR:pid), cmd_content);
   }
   fclose(tcpv4);
 }
