@@ -89,8 +89,6 @@ void list_connection(char *protocal, char *filter) {
 
   /* Skip the title */
   fgets(conn_info, BUF_SIZE, net_fp);
-  printf("Proto\tLocal Address\tForeign Address\tPID/Program name and "
-         "arguments\n");
 
   while (fgets(conn_info, BUF_SIZE, net_fp)) {
     int pid;
@@ -110,11 +108,10 @@ void list_connection(char *protocal, char *filter) {
     if (pid != ERR) {
       snprintf(cmd_path, sizeof(cmd_path), "/proc/%d/cmdline", pid);
       read_cmd = fopen(cmd_path, "r");
-    }
-
-    if (read_cmd) {
-      fgets(cmd_content, BUF_SIZE, read_cmd);
-      fclose(read_cmd);
+      if (read_cmd) {
+        fgets(cmd_content, BUF_SIZE, read_cmd);
+        fclose(read_cmd);
+      }
     }
 
     /* string filter */
@@ -171,11 +168,16 @@ void parse_arg(int argc, char **argv) {
   }
 
   /* Dump connection information */
-  if (protocal ^ 0x10) {
+  if (protocal != UDP) {
+    printf("TCP\nProto\tLocal Address\tForeign Address\tPID/Program name and "
+           "arguments\n");
     list_connection("tcp", filter);
     list_connection("tcp6", filter);
   }
-  if (protocal ^ 0x01) {
+  if (protocal != TCP) {
+    printf(
+        "\n\nUDP\nProto\tLocal Address\tForeign Address\tPID/Program name and "
+        "arguments\n");
     list_connection("udp", filter);
     list_connection("udp6", filter);
   }
