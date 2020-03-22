@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -15,6 +16,9 @@
 #define TCP 0x01
 #define UDP 0x10
 #define BOTH 0x11
+
+#define IPv4 8
+#define IPv6 32
 
 #define skip_column(to_skip)                                                   \
   do {                                                                         \
@@ -78,6 +82,70 @@ int find_pid(int inode) {
   return ERR; /* Search failed */
 }
 
+int hex2int(char c) {
+  if (c >= '0' && c <= '9')
+    return c - '0';
+  if (c >= 'a' && c <= 'f')
+    return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F')
+    return c - 'A' + 10;
+}
+
+char *readable_format(char *origin) {
+  char ret[BUF_SIZE];
+  memset(ret, 0, sizeof(ret));
+  int split;
+
+  if (!(origin[IPv4] - ':')) { /* IPv4 */
+    split = IPv4;
+    snprintf(ret, sizeof(ret), "%d.%d.%d.%d",
+             hex2int(origin[6]) * 16 + hex2int(origin[7]),
+             hex2int(origin[4]) * 16 + hex2int(origin[5]),
+             hex2int(origin[2]) * 16 + hex2int(origin[3]),
+             hex2int(origin[0]) * 16 + hex2int(origin[1]));
+  } else if (!(origin[IPv6] - ':')) { /* IPv6 */
+    split = IPv6;
+    int word = 0;
+    int index = 0;
+    while (word < 4) {
+      ret[index++] = origin[word * 8 + 6];
+      ret[index++] = origin[word * 8 + 7];
+      ret[index++] = origin[word * 8 + 4];
+      ret[index++] = origin[word * 8 + 5];
+      ret[index++] = ':';
+      ret[index++] = origin[word * 8 + 2];
+      ret[index++] = origin[word * 8 + 3];
+      ret[index++] = origin[word * 8 + 0];
+      ret[index++] = origin[word * 8 + 1];
+      ret[index++] = ':';
+      word++;
+    }
+    ret[index - 1] = '\0';
+
+    unsigned char buf[sizeof(struct in6_addr)];
+    char str[INET6_ADDRSTRLEN];
+    const char *res = ret;
+    inet_pton(AF_INET6, res, buf);
+    inet_ntop(AF_INET6, buf, str, INET6_ADDRSTRLEN);
+    memset(ret, 0, sizeof(ret));
+    strcpy(ret, str);
+  }
+
+  /* port */
+  char port_str[BUF_SIZE] = {'\0'};
+  int port = hex2int(origin[split + 1]) * 4096 +
+             hex2int(origin[split + 2]) * 256 +
+             hex2int(origin[split + 3]) * 16 + hex2int(origin[split + 4]);
+  if (port)
+    snprintf(port_str, sizeof(port_str), ":%d", port);
+  else
+    snprintf(port_str, sizeof(port_str), ":*");
+  strcat(ret, port_str);
+
+  strcpy(origin, ret);
+  return origin;
+}
+
 void list_connection(char *protocal, char *filter) {
 
   char network_file[BUF_SIZE];
@@ -117,8 +185,16 @@ void list_connection(char *protocal, char *filter) {
     /* string filter */
     if (filter && (!strstr(cmd_content, filter)))
       continue;
-    printf("%s\t%s\t%s\t%6d / %s\n", protocal, local_addr, foreign_addr, pid,
-           cmd_content);
+
+    char local_addr_bck[BUF_SIZE] = {'\0'};
+    strcpy(local_addr_bck, local_addr);
+    if (pid != ERR)
+      printf("%s\t%-40s\t%-40s\t%6d | %s\n", protocal,
+             readable_format(local_addr_bck), readable_format(foreign_addr),
+             pid, cmd_content);
+    else
+      printf("%s\t%-40s\t%-40s\n", protocal, readable_format(local_addr_bck),
+             readable_format(foreign_addr));
   }
   fclose(net_fp);
 }
@@ -156,7 +232,7 @@ void parse_arg(int argc, char **argv) {
       break;
 
     case '?':
-      break;
+      return;
 
     default:
       printf("?? getopt returned character code 0%o ??\n", c);
@@ -169,15 +245,14 @@ void parse_arg(int argc, char **argv) {
 
   /* Dump connection information */
   if (protocal != UDP) {
-    printf("TCP\nProto\tLocal Address\tForeign Address\tPID/Program name and "
-           "arguments\n");
+    printf("\nTCP\nProto\t%-40s\t%-40s\tPID/Program name and arguments\n",
+           "Local Address", "Foreign Address");
     list_connection("tcp", filter);
     list_connection("tcp6", filter);
   }
   if (protocal != TCP) {
-    printf(
-        "\n\nUDP\nProto\tLocal Address\tForeign Address\tPID/Program name and "
-        "arguments\n");
+    printf("\nUDP\nProto\t%-40s\t%-40s\tPID/Program name and arguments\n",
+           "Local Address", "Foreign Address");
     list_connection("udp", filter);
     list_connection("udp6", filter);
   }
