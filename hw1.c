@@ -240,7 +240,12 @@ void parse_arg(int argc, char **argv) {
   }
 
   if (optind < argc) {
-    filter = argv[optind];
+    filter = argv[optind++];
+    while (optind < argc) {
+      char tmp[BUF_SIZE] = {'\0'};
+      snprintf(tmp, sizeof(tmp), " %s", argv[optind++]);
+      strcat(filter, tmp);
+    }
   }
 
   /* Dump connection information */
