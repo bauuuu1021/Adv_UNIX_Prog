@@ -6,12 +6,12 @@ using namespace std;
 
 #define DEBUG 1 
 #if DEBUG 
-#define debug(...) do { printf("[debug] "); printf(__VA_ARGS__); } while (0)
+#define debug(...) do { printf("[debug] " __VA_ARGS__); } while (0)
 #else
 #define debug(...) do {  } while (0)
 #endif
 
-#define info(...)  do { printf("[sandbox] "); printf(__VA_ARGS__); } while (0)
+#define info(...)  do { printf("[sandbox] " __VA_ARGS__); } while (0)
 
 struct INJECT_OPT {
 	string so_path;
@@ -49,9 +49,9 @@ void parse_arg(int ac, char **av) {
 
 	ac -= optind;
 	av += optind;
-	
+
 	for(int i = 0; i < ac; i++) {
-        inject_opt.cmd += av[i];
+		inject_opt.cmd += av[i];
 		inject_opt.cmd += " ";
 	}
 
