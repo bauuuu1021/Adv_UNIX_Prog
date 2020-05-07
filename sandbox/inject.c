@@ -23,13 +23,13 @@
 
 #define info(...)                                                              \
   do {                                                                         \
-    printf("[sandbox] " __VA_ARGS__);                                          \
+    fprintf(tty_fd, "[sandbox] " __VA_ARGS__);                                          \
   } while (0)
 
 #define old_func(type, name, ...) static type (*old_##name)(__VA_ARGS__) = NULL
 
 #define handle_old_func(name)                                                  \
-  debug("call __" #name "()\n");                                               \
+  debug("call " #name "()\n");                                               \
   if (old_##name == NULL) {                                                    \
     void *handle = dlopen("libc.so.6", RTLD_LAZY);                             \
     if (handle)                                                                \
@@ -38,6 +38,8 @@
   if (old_##name == NULL) {                                                    \
     debug("old function not found\n");                                         \
   }
+
+FILE *tty_fd;
 
 old_func(uid_t, getuid, void);
 old_func(int, __xstat, int ver, const char *path, struct stat *stat_buf);
@@ -178,31 +180,41 @@ int unlink(const char *__name) {
 }
 
 int execl(const char *__path, const char *__arg, ...) {
-  info("reject %s\n", __func__);
+  info("reject : %s(%s)\n", __func__, __path);
   return -1;
 }
 
 int execle(const char *__path, const char *__arg, ...) {
-  info("reject %s\n", __func__);
+  info("reject : %s(%s)\n", __func__, __path);
   return -1;
 }
 
 int execlp(const char *__file, const char *__arg, ...) {
-  info("reject %s\n", __func__);
+  info("reject : %s(%s)\n", __func__, __file);
   return -1;
 }
 
 int execv(const char *__path, char *const __argv[]) {
-  info("reject %s\n", __func__);
+  info("reject : %s(%s)\n", __func__, __path);
   return -1;
 }
 
 int execve(const char *__path, char *const __argv[], char *const __envp[]) {
-  info("reject %s\n", __func__);
+  info("reject : %s(%s)\n", __func__, __path);
   return -1;
 }
 
 int system(const char *command) {
-  info("reject %s\n", __func__);
+  info("reject : %s(%s)\n", __func__, command);
   return -1;
+}
+
+__attribute__((constructor)) static void init()
+{
+  tty_fd = fopen("/dev/tty", "w");
+}
+
+__attribute__((destructor)) static void end()
+{
+  fclose(tty_fd);
 }

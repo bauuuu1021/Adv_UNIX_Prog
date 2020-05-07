@@ -11,7 +11,7 @@ sandbox.so: inject.c
 	$(CC) -o $@ $< $(DL_FLAGS)
 
 %: %.cpp
-	$(CXX) -o $@ $<
+	$(CXX) -o $@ $< $(CFLAGS)
 
 .PHONY: clean
 clean:
