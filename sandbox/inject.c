@@ -48,7 +48,7 @@
     if (!strlen(cwd))                                                          \
       break;                                                                   \
     int len = (strlen(cwd) < strlen(s)) ? strlen(cwd) : strlen(s);             \
-    if (strncmp(cwd, s, len)) {                                                \
+    if (strncmp(cwd, s, len) || (strlen(s)==1 && strlen(cwd)!=strlen(s))) {                                                \
       info("%s : access to %s is not allowed\n", func_name, target_path);      \
       return ret_err;                                                              \
     }                                                                          \
