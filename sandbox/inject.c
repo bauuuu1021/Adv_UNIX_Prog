@@ -4,12 +4,15 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #define MAXARGS 31
-#define DEBUG 1
+#define MAX_PATH_SIZE 256
+#define ERR -1
+#define DEBUG 0
 #if DEBUG
 #define debug(...)                                                             \
   do {                                                                         \
@@ -23,13 +26,12 @@
 
 #define info(...)                                                              \
   do {                                                                         \
-    fprintf(tty_fd, "[sandbox] " __VA_ARGS__);                                          \
+    fprintf(tty_fd, "[sandbox] " __VA_ARGS__);                                 \
   } while (0)
 
 #define old_func(type, name, ...) static type (*old_##name)(__VA_ARGS__) = NULL
 
 #define handle_old_func(name)                                                  \
-  debug("call " #name "()\n");                                               \
   if (old_##name == NULL) {                                                    \
     void *handle = dlopen("libc.so.6", RTLD_LAZY);                             \
     if (handle)                                                                \
@@ -39,9 +41,22 @@
     debug("old function not found\n");                                         \
   }
 
-FILE *tty_fd;
+#define check_range(func_name, target_path, ret_err)                                    \
+  do {                                                                         \
+    char s[MAX_PATH_SIZE] = {0};                                               \
+    realpath(target_path, s);                                                  \
+    if (!strlen(cwd))                                                          \
+      break;                                                                   \
+    int len = (strlen(cwd) < strlen(s)) ? strlen(cwd) : strlen(s);             \
+    if (strncmp(cwd, s, len)) {                                                \
+      info("%s : access to %s is not allowed\n", func_name, target_path);      \
+      return ret_err;                                                              \
+    }                                                                          \
+  } while (0)
 
-old_func(uid_t, getuid, void);
+FILE *tty_fd;
+char cwd[MAX_PATH_SIZE] = {0};
+
 old_func(int, __xstat, int ver, const char *path, struct stat *stat_buf);
 old_func(int, __lxstat, int ver, const char *path, struct stat *stat_buf);
 old_func(int, __fxstat, int vers, int fd, struct stat *buf);
@@ -63,18 +78,15 @@ old_func(int, rmdir, const char *__path);
 old_func(int, symlink, const char *target, const char *linkpath);
 old_func(int, unlink, const char *__name);
 
-uid_t getuid(void) {
-  handle_old_func(getuid);
-  return old_getuid();
-}
-
 int __xstat(int ver, const char *path, struct stat *stat_buf) {
   handle_old_func(__xstat);
+  check_range(__func__, path, ERR);
   return old___xstat(ver, path, stat_buf);
 }
 
 int __lxstat(int ver, const char *path, struct stat *stat_buf) {
   handle_old_func(__lxstat);
+  check_range(__func__, path, ERR);
   return old___lxstat(ver, path, stat_buf);
 }
 
@@ -85,36 +97,44 @@ int __fxstat(int vers, int fd, struct stat *buf) {
 
 int chdir(const char *path) {
   handle_old_func(chdir);
+  check_range(__func__, path, ERR);
   return old_chdir(path);
 }
 
 int chmod(const char *__file, mode_t __mode) {
   handle_old_func(chmod);
+  check_range(__func__, __file, ERR);
   return old_chmod(__file, __mode);
 }
 
 int chown(const char *__file, uid_t __owner, gid_t __group) {
   handle_old_func(chown);
+  check_range(__func__, __file, ERR);
   return old_chown(__file, __owner, __group);
 }
 
 int creat(const char *__file, mode_t __mode) {
   handle_old_func(creat);
+  check_range(__func__, __file, ERR);
   return old_creat(__file, __mode);
 }
 
 FILE *fopen(const char *__restrict __filename, const char *__restrict __modes) {
   handle_old_func(fopen);
+  check_range(__func__, __filename, NULL);
   return old_fopen(__filename, __modes);
 }
 
 int link(const char *__from, const char *__to) {
   handle_old_func(link);
+  check_range(__func__, __from, ERR);
+  check_range(__func__, __to, ERR);
   return old_link(__from, __to);
 }
 
 int mkdir(const char *__path, __mode_t __mode) {
   handle_old_func(mkdir);
+  check_range(__func__, __path, ERR);
   return old_mkdir(__path, __mode);
 }
 
@@ -122,12 +142,12 @@ int open(const char *__path, int __oflag, ...) {
   handle_old_func(open);
   int mode = 0;
   if (__OPEN_NEEDS_MODE(__oflag)) {
-
     va_list arg;
     va_start(arg, __oflag);
     mode = va_arg(arg, int);
     va_end(arg);
   }
+  check_range(__func__, __path, ERR);
   return old_open(__path, __oflag, mode);
 }
 
@@ -135,86 +155,93 @@ int openat(int __fd, const char *__path, int __oflag, ...) {
   handle_old_func(openat);
   int mode = 0;
   if (__OPEN_NEEDS_MODE(__oflag)) {
-
     va_list arg;
     va_start(arg, __oflag);
     mode = va_arg(arg, int);
     va_end(arg);
   }
+  check_range(__func__, __path, ERR);
   return old_openat(__fd, __path, __oflag, mode);
 }
 
 DIR *opendir(const char *__nam) {
   handle_old_func(opendir);
+  check_range(__func__, __nam, NULL);
   return old_opendir(__nam);
 }
 
 ssize_t readlink(const char *pathname, char *buf, size_t bufsiz) {
   handle_old_func(readlink);
+  check_range(__func__, pathname, ERR);
   return old_readlink(pathname, buf, bufsiz);
 }
 
 int remove(const char *__filename) {
   handle_old_func(remove);
+  check_range(__func__, __filename, ERR);
   return old_remove(__filename);
 }
 
 int rename(const char *__old, const char *__new) {
   handle_old_func(rename);
+  check_range(__func__, __old, ERR);
+  check_range(__func__, __new, ERR);
   return old_rename(__old, __new);
 }
 
 int rmdir(const char *__path) {
   handle_old_func(rmdir);
+  check_range(__func__, __path, ERR);
   return old_rmdir(__path);
 }
 
 int symlink(const char *target, const char *linkpath) {
   handle_old_func(symlink);
+  check_range(__func__, target, ERR);
+  check_range(__func__, linkpath, ERR);
   return old_symlink(target, linkpath);
 }
 
 int unlink(const char *__name) {
   handle_old_func(unlink);
+  check_range(__func__, __name, ERR);
   return old_unlink(__name);
 }
 
 int execl(const char *__path, const char *__arg, ...) {
   info("reject : %s(%s)\n", __func__, __path);
-  return -1;
+  return ERR;
 }
 
 int execle(const char *__path, const char *__arg, ...) {
   info("reject : %s(%s)\n", __func__, __path);
-  return -1;
+  return ERR;
 }
 
 int execlp(const char *__file, const char *__arg, ...) {
   info("reject : %s(%s)\n", __func__, __file);
-  return -1;
+  return ERR;
 }
 
 int execv(const char *__path, char *const __argv[]) {
   info("reject : %s(%s)\n", __func__, __path);
-  return -1;
+  return ERR;
 }
 
 int execve(const char *__path, char *const __argv[], char *const __envp[]) {
   info("reject : %s(%s)\n", __func__, __path);
-  return -1;
+  return ERR;
 }
 
 int system(const char *command) {
   info("reject : %s(%s)\n", __func__, command);
-  return -1;
+  return ERR;
 }
 
-__attribute__((constructor)) static void init()
-{
+__attribute__((constructor)) static void init() {
   tty_fd = fopen("/dev/tty", "w");
+  getcwd(cwd, sizeof(cwd));
+  debug("constructor : cwd is %s\n", cwd);
 }
 
-__attribute__((destructor)) static void end()
-{
-  fclose(tty_fd);
-}
+__attribute__((destructor)) static void end() { fclose(tty_fd); }
