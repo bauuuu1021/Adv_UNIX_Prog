@@ -80,10 +80,15 @@ void parse_arg(int ac, char **av) {
 
   string cwd = string(getcwd(NULL, 0)) + "/";
   for (int i = 0; i < ac; i++) {
-    if ((!strncmp(av[i], "/", 1)) || (!i && strncmp(av[i], ".", 1)) ||
-        (!strncmp(av[i], "-", 1))) // cases for /bin/ls ... or stat ...
+    if (!strncmp(av[i], "sh", 2)) { // cmd `sh ...`
+      while (i<ac)
+        inject_opt.cmd = inject_opt.cmd + av[i++] + " ";
+      break;
+    }
+    else if ((!strncmp(av[i], "/", 1)) || (!i && strncmp(av[i], ".", 1)) ||
+        (!strncmp(av[i], "-", 1))) // cases for `/bin/ls ...` or `ls ...` or options
       inject_opt.cmd += av[i];
-    else
+    else  // cases that need to get abs. path
       inject_opt.cmd += get_real_path(cwd, av[i]);
     inject_opt.cmd += " ";
   }
