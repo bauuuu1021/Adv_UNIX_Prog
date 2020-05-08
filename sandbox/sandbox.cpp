@@ -1,9 +1,11 @@
 #include <iostream>
+#include <string.h>
 #include <string>
 #include <unistd.h>
 
 using namespace std;
 
+#define MAX_PATH_SIZE 256
 #define DEBUG 1
 #if DEBUG
 #define debug(...)                                                             \
@@ -28,6 +30,22 @@ struct INJECT_OPT {
 };
 
 struct INJECT_OPT inject_opt;
+
+string get_real_path(string cwd, string filename) {
+
+  string prefix, origin, postfix;
+  prefix = origin = cwd + filename;
+  postfix = "";
+  char ret[MAX_PATH_SIZE] = {0};
+
+  while (!realpath(prefix.c_str(), ret)) {
+    auto split = prefix.find_last_of("/");
+    postfix = origin.substr(split);
+    prefix = origin.substr(0, split);
+  }
+
+  return string(ret) + postfix;
+}
 
 void parse_arg(int ac, char **av) {
   int option;
@@ -60,17 +78,28 @@ void parse_arg(int ac, char **av) {
   ac -= optind;
   av += optind;
 
+  string cwd = string(getcwd(NULL, 0)) + "/";
   for (int i = 0; i < ac; i++) {
-    inject_opt.cmd += av[i];
+    if ((!strncmp(av[i], "/", 1)) || (!i && strncmp(av[i], ".", 1)) ||
+        (!strncmp(av[i], "-", 1))) // cases for /bin/ls ... or stat ...
+      inject_opt.cmd += av[i];
+    else
+      inject_opt.cmd += get_real_path(cwd, av[i]);
     inject_opt.cmd += " ";
   }
 }
 
 int main(int argc, char **argv) {
 
+  inject_opt.base_dir = ".";
   inject_opt.so_path = "./sandbox.so";
   parse_arg(argc, argv);
-  string cmd = "LD_PRELOAD=" + inject_opt.so_path + " " + inject_opt.cmd;
+
+  string base_dir =
+      "cd " + string(realpath((inject_opt.base_dir).c_str(), NULL)) + ";";
+  string cmd = base_dir + "LD_PRELOAD=" +
+               string(realpath((inject_opt.so_path).c_str(), NULL)) + " " +
+               inject_opt.cmd;
 
   debug("cmd is %s\n", cmd.c_str());
   system(cmd.c_str());
