@@ -20,8 +20,10 @@ using namespace std;
 
 #define info(...)                                                              \
   do {                                                                         \
-    printf("[sandbox] " __VA_ARGS__);                                          \
+    fprintf(tty_fd, "[sandbox] " __VA_ARGS__);                                 \
   } while (0)
+
+FILE *tty_fd;
 
 struct INJECT_OPT {
   string so_path;
@@ -80,21 +82,25 @@ void parse_arg(int ac, char **av) {
 
   string cwd = string(getcwd(NULL, 0)) + "/";
   for (int i = 0; i < ac; i++) {
-    if (!strncmp(av[i], "sh", 2)) { // cmd `sh ...`
-      while (i<ac)
+    // cmd `sh ...`
+    if (!strncmp(av[i], "sh", 2)) {
+      while (i < ac)
         inject_opt.cmd = inject_opt.cmd + av[i++] + " ";
       break;
     }
+    // cases for `/bin/ls ...` or `ls ...` or options
     else if ((!strncmp(av[i], "/", 1)) || (!i && strncmp(av[i], ".", 1)) ||
-        (!strncmp(av[i], "-", 1))) // cases for `/bin/ls ...` or `ls ...` or options
+             (!strncmp(av[i], "-", 1)))
       inject_opt.cmd += av[i];
-    else  // cases that need to get abs. path
+    // cases that need to get abs. path
+    else
       inject_opt.cmd += get_real_path(cwd, av[i]);
     inject_opt.cmd += " ";
   }
 }
 
 int main(int argc, char **argv) {
+  tty_fd = fopen("/dev/tty", "w");
 
   inject_opt.base_dir = ".";
   inject_opt.so_path = "./sandbox.so";
@@ -108,4 +114,6 @@ int main(int argc, char **argv) {
 
   debug("cmd is %s\n", cmd.c_str());
   system(cmd.c_str());
+
+  fclose(tty_fd);
 }
