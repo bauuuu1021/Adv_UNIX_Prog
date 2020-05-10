@@ -41,23 +41,26 @@
     debug("old function not found\n");                                         \
   }
 
-#define check_range(func_name, target_path, ret_err)                                    \
+#define check_range(func_name, target_path, ret_err)                           \
   do {                                                                         \
     char s[MAX_PATH_SIZE] = {0};                                               \
     realpath(target_path, s);                                                  \
     if (!strlen(cwd))                                                          \
       break;                                                                   \
     int len = (strlen(cwd) < strlen(s)) ? strlen(cwd) : strlen(s);             \
-    if (strncmp(cwd, s, len) || (strlen(s)==1 && strlen(cwd)!=strlen(s))) {                                                \
+    if (strncmp(cwd, s, len) ||                                                \
+        (strlen(s) == 1 && strlen(cwd) != strlen(s))) {                        \
       info("%s : access to %s is not allowed\n", func_name, target_path);      \
-      return ret_err;                                                              \
+      return ret_err;                                                          \
     }                                                                          \
   } while (0)
 
 FILE *tty_fd;
 char cwd[MAX_PATH_SIZE] = {0};
+struct stat64 *_avoid_warning;
 
 old_func(int, __xstat, int ver, const char *path, struct stat *stat_buf);
+old_func(int, __xstat64, int ver, const char *path, struct stat64 *stat_buf);
 old_func(int, __lxstat, int ver, const char *path, struct stat *stat_buf);
 old_func(int, __fxstat, int vers, int fd, struct stat *buf);
 old_func(int, chdir, const char *path);
@@ -76,13 +79,20 @@ old_func(int, remove, const char *__filename);
 old_func(int, rename, const char *__old, const char *__new);
 old_func(int, rmdir, const char *__path);
 old_func(int, symlink, const char *target, const char *linkpath);
-old_func(int, symlinkat, const char *target, int newdirfd, const char *linkpath);
+old_func(int, symlinkat, const char *target, int newdirfd,
+         const char *linkpath);
 old_func(int, unlink, const char *__name);
 
 int __xstat(int ver, const char *path, struct stat *stat_buf) {
   handle_old_func(__xstat);
   check_range(__func__, path, ERR);
   return old___xstat(ver, path, stat_buf);
+}
+
+int __xstat64(int ver, const char *path, struct stat64 *stat_buf) {
+  handle_old_func(__xstat);
+  check_range(__func__, path, ERR);
+  return old___xstat64(ver, path, stat_buf);
 }
 
 int __lxstat(int ver, const char *path, struct stat *stat_buf) {
@@ -167,12 +177,12 @@ int openat(int __fd, const char *__path, int __oflag, ...) {
 
 DIR *opendir(const char *__nam) {
   handle_old_func(opendir);
-  char s[MAX_PATH_SIZE] = {0};                                              
+  char s[MAX_PATH_SIZE] = {0};
   realpath(__nam, s);
-  int len = strlen(cwd);                                                  
-  if (strncmp(cwd, s, len) || (strlen(s)==1 && strlen(cwd)!=strlen(s))) {                                                \
-    info("%s : access to %s is not allowed\n", "opendir", __nam);      
-    return NULL;                                                              
+  int len = strlen(cwd);
+  if (strncmp(cwd, s, len) || (strlen(s) == 1 && strlen(cwd) != strlen(s))) {
+    info("%s : access to %s is not allowed\n", "opendir", __nam);
+    return NULL;
   }
   return old_opendir(__nam);
 }
