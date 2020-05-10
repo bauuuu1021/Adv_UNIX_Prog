@@ -76,6 +76,7 @@ old_func(int, remove, const char *__filename);
 old_func(int, rename, const char *__old, const char *__new);
 old_func(int, rmdir, const char *__path);
 old_func(int, symlink, const char *target, const char *linkpath);
+old_func(int, symlinkat, const char *target, int newdirfd, const char *linkpath);
 old_func(int, unlink, const char *__name);
 
 int __xstat(int ver, const char *path, struct stat *stat_buf) {
@@ -202,6 +203,13 @@ int rmdir(const char *__path) {
 }
 
 int symlink(const char *target, const char *linkpath) {
+  handle_old_func(symlink);
+  check_range(__func__, target, ERR);
+  check_range(__func__, linkpath, ERR);
+  return old_symlink(target, linkpath);
+}
+
+int symlinkat(const char *target, int newdirfd, const char *linkpath) {
   handle_old_func(symlink);
   check_range(__func__, target, ERR);
   check_range(__func__, linkpath, ERR);
