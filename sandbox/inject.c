@@ -61,8 +61,6 @@ struct stat64 *_avoid_warning;
 
 old_func(int, __xstat, int ver, const char *path, struct stat *stat_buf);
 old_func(int, __xstat64, int ver, const char *path, struct stat64 *stat_buf);
-old_func(int, __lxstat, int ver, const char *path, struct stat *stat_buf);
-old_func(int, __fxstat, int vers, int fd, struct stat *buf);
 old_func(int, chdir, const char *path);
 old_func(int, chmod, const char *__file, mode_t __mode);
 old_func(int, chown, const char *__file, uid_t __owner, gid_t __group);
@@ -90,20 +88,9 @@ int __xstat(int ver, const char *path, struct stat *stat_buf) {
 }
 
 int __xstat64(int ver, const char *path, struct stat64 *stat_buf) {
-  handle_old_func(__xstat);
+  handle_old_func(__xstat64);
   check_range(__func__, path, ERR);
   return old___xstat64(ver, path, stat_buf);
-}
-
-int __lxstat(int ver, const char *path, struct stat *stat_buf) {
-  handle_old_func(__lxstat);
-  check_range(__func__, path, ERR);
-  return old___lxstat(ver, path, stat_buf);
-}
-
-int __fxstat(int vers, int fd, struct stat *buf) {
-  handle_old_func(__fxstat);
-  return old___fxstat(vers, fd, buf);
 }
 
 int chdir(const char *path) {
@@ -269,7 +256,7 @@ int system(const char *command) {
 
 __attribute__((constructor)) static void init() {
   tty_fd = fopen("/dev/tty", "w");
-  getcwd(cwd, sizeof(cwd));
+  strcpy(cwd, getenv("sandbox_basedir"));
   debug("constructor : cwd is %s\n", cwd);
 }
 

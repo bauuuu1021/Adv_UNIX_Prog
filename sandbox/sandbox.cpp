@@ -6,7 +6,7 @@
 using namespace std;
 
 #define MAX_PATH_SIZE 256
-#define DEBUG 1
+#define DEBUG 0
 #if DEBUG
 #define debug(...)                                                             \
   do {                                                                         \
@@ -82,19 +82,7 @@ void parse_arg(int ac, char **av) {
 
   string cwd = string(getcwd(NULL, 0)) + "/";
   for (int i = 0; i < ac; i++) {
-    // cmd `sh ...`
-    if (!strncmp(av[i], "sh", 2)) {
-      while (i < ac)
-        inject_opt.cmd = inject_opt.cmd + av[i++] + " ";
-      break;
-    }
-    // cases for `/bin/ls ...` or `ls ...` or options
-    else if ((!strncmp(av[i], "/", 1)) || (!i && strncmp(av[i], ".", 1)) ||
-             (!strncmp(av[i], "-", 1)))
-      inject_opt.cmd += av[i];
-    // cases that need to get abs. path
-    else
-      inject_opt.cmd += get_real_path(cwd, av[i]);
+    inject_opt.cmd += av[i];
     inject_opt.cmd += " ";
   }
 }
@@ -106,9 +94,8 @@ int main(int argc, char **argv) {
   inject_opt.so_path = "./sandbox.so";
   parse_arg(argc, argv);
 
-  string base_dir =
-      "cd " + string(realpath((inject_opt.base_dir).c_str(), NULL)) + ";";
-  string cmd = base_dir + "LD_PRELOAD=" +
+  setenv("sandbox_basedir", realpath((inject_opt.base_dir).c_str(), NULL), !0);
+  string cmd = "LD_PRELOAD=" +
                string(realpath((inject_opt.so_path).c_str(), NULL)) + " " +
                inject_opt.cmd;
 
