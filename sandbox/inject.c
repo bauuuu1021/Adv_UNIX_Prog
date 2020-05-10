@@ -239,6 +239,11 @@ int execve(const char *__path, char *const __argv[], char *const __envp[]) {
   return ERR;
 }
 
+int execvp(const char *__path, char *const __argv[]) {
+  info("reject : %s(%s)\n", __func__, __path);
+  return ERR;
+}
+
 int system(const char *command) {
   info("reject : %s(%s)\n", __func__, command);
   return ERR;
