@@ -166,7 +166,13 @@ int openat(int __fd, const char *__path, int __oflag, ...) {
 
 DIR *opendir(const char *__nam) {
   handle_old_func(opendir);
-  check_range(__func__, __nam, NULL);
+  char s[MAX_PATH_SIZE] = {0};                                              
+  realpath(__nam, s);
+  int len = strlen(cwd);                                                  
+  if (strncmp(cwd, s, len) || (strlen(s)==1 && strlen(cwd)!=strlen(s))) {                                                \
+    info("%s : access to %s is not allowed\n", "opendir", __nam);      
+    return NULL;                                                              
+  }
   return old_opendir(__nam);
 }
 
