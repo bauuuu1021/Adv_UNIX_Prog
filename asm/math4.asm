@@ -7,15 +7,15 @@
 mov ebx, DWORD PTR [0x600000]
 imul ebx, -5
 
-mov edx, 0
 mov eax, DWORD PTR [0x600004]
 neg eax
+cdq
 mov ecx, DWORD PTR [0x600008]
-div ecx
+idiv ecx
 
 mov eax, ebx
 mov ebx, edx
-mov edx, 0
-div ebx
+cdq 
+idiv ebx
 mov DWORD PTR [0x60000c], eax
 done:

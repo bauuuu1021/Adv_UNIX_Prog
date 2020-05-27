@@ -8,13 +8,14 @@
 mov ecx, DWORD PTR [0x600004]
 neg ecx
 mov eax, DWORD PTR [0x600000]
+cdq
 mul ecx
 and eax, 0xffffffff
-mov edx, 0
 
 mov ecx, DWORD PTR [0x600008]
 sub ecx, ebx
 
-div ecx
+cdq
+idiv ecx
 mov DWORD PTR [0x600008], eax
 done:
