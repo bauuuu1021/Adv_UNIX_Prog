@@ -1,0 +1,5 @@
+1. Observe the objdump of traceme, find that `8ab` might be the offset after function f()
+2. Launch the program by `gdb ./traceme`
+3. Find base address by `info proc mappings`
+4. Set breakpoint by `base address + offset` (eg, b *0x00005555555548ab)
+5. After the breakpoint is hit, print out the output by `p (char*)&output`
